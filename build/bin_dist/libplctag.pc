@@ -1,0 +1,11 @@
+prefix=/usr/local
+exec_prefix=/usr/local
+libdir=/usr/local/lib
+includedir=/usr/local/include
+
+Name: libplctag
+Description: Portable and simple API for accessing Allen-Bradley PLC data over Ethernet
+Version: 2.6.12
+
+Libs: -L${libdir} -lplctag -pthread
+Cflags: -I${includedir}

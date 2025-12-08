@@ -1,0 +1,183 @@
+/***************************************************************************
+ *   Copyright (C) 2025 by Kyle Hayes                                      *
+ *   Author Kyle Hayes  kyle.hayes@gmail.com                               *
+ *                                                                         *
+ * This software is available under either the Mozilla Public License      *
+ * version 2.0 or the GNU LGPL version 2 (or later) license, whichever     *
+ * you choose.                                                             *
+ *                                                                         *
+ * MPL 2.0:                                                                *
+ *                                                                         *
+ *   This Source Code Form is subject to the terms of the Mozilla Public   *
+ *   License, v. 2.0. If a copy of the MPL was not distributed with this   *
+ *   file, You can obtain one at http://mozilla.org/MPL/2.0/.              *
+ *                                                                         *
+ *                                                                         *
+ * LGPL 2:                                                                 *
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU Library General Public License as       *
+ *   published by the Free Software Foundation; either version 2 of the    *
+ *   License, or (at your option) any later version.                       *
+ *                                                                         *
+ *   This program is distributed in the hope that it will be useful,       *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+ *   GNU General Public License for more details.                          *
+ *                                                                         *
+ *   You should have received a copy of the GNU Library General Public     *
+ *   License along with this program; if not, write to the                 *
+ *   Free Software Foundation, Inc.,                                       *
+ *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
+ ***************************************************************************/
+
+
+#include "compat_utils.h"
+#include <inttypes.h>
+#include <libplctag/lib/libplctag.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#define REQUIRED_VERSION 2, 1, 0
+
+#define TAG_PATH \
+    "protocol=ab_eip&gateway=10.17.45.37&path=1,0&cpu=LGX&elem_size=4&elem_count=1&name=DataIn_Frm_Sched[1]&read_cache_ms=100"
+#define ELEM_COUNT 1
+#define ELEM_SIZE 4
+#define DATA_TIMEOUT 500
+
+#define MAX_THREADS (300)
+
+/*
+ * This test program creates a lot of threads that read the same tag in
+ * the plc.  They all hit the exact same underlying tag data structure.
+ * This tests, to some extent, whether the library can handle multi-threaded
+ * access.
+ */
+
+
+/* global to cheat on passing it to threads. */
+volatile int32_t tag;
+volatile int done = 0;
+
+
+void handle_done(void) { done = 1; }
+
+
+/*
+ * Thread function.  Just read until killed.
+ */
+
+void *thread_func(void *data) {
+    int tid = (int)(intptr_t)data;
+    int rc;
+    int value;
+
+    while(!done) {
+        int64_t start;
+        int64_t end;
+
+        /* capture the starting time */
+        start = compat_time_ms();
+
+        /* use do/while to allow easy exit without return */
+        do {
+            rc = plc_tag_lock(tag);
+
+            if(rc != PLCTAG_STATUS_OK) {
+                value = 1000;
+                break; /* punt, no lock */
+            }
+
+            rc = plc_tag_read(tag, DATA_TIMEOUT);
+
+            if(rc != PLCTAG_STATUS_OK) {
+                value = 1001;
+            } else {
+                value = (int)plc_tag_get_int32(tag, 0);
+            }
+
+            /* yes, we should look at the return value */
+            plc_tag_unlock(tag);
+        } while(0);
+
+        end = compat_time_ms();
+
+        // NOLINTNEXTLINE
+        fprintf(stderr, "%" PRId64 " Thread %d got result %d with return code %s in %dms\n", compat_time_ms(), tid, value,
+                plc_tag_decode_error(rc), (int)(end - start));
+
+        /* this is really too low */
+        compat_sleep_ms(10, NULL);
+    }
+
+    return 0;
+}
+
+
+int main(int argc, char **argv) {
+    int rc = PLCTAG_STATUS_OK;
+    compat_thread_t thread[MAX_THREADS];
+    int num_threads;
+    int thread_id = 0;
+
+    /* check the library version. */
+    if(plc_tag_check_lib_version(REQUIRED_VERSION) != PLCTAG_STATUS_OK) {
+        // NOLINTNEXTLINE
+        fprintf(stderr, "Required compatible library version %d.%d.%d not available!", REQUIRED_VERSION);
+        exit(1);
+    }
+
+    if(argc != 2) {
+        // NOLINTNEXTLINE
+        fprintf(stderr, "ERROR: Must provide number of threads to run (between 1 and 300) argc=%d!\n", argc);
+        return 0;
+    }
+
+    num_threads = (int)strtol(argv[1], NULL, 10);
+
+    if(num_threads < 1 || num_threads > MAX_THREADS) {
+        // NOLINTNEXTLINE
+        fprintf(stderr, "ERROR: %d (%s) is not a valid number. Must provide number of threads to run (between 1 and 300)!\n",
+                num_threads, argv[1]);
+        return 0;
+    }
+
+    /* set up done handler */
+    compat_set_interrupt_handler(handle_done);
+
+    /* create the tag */
+    tag = plc_tag_create(TAG_PATH, DATA_TIMEOUT);
+
+    /* everything OK? */
+    if(tag < 0) {
+        // NOLINTNEXTLINE
+        fprintf(stderr, "ERROR %s: Could not create tag!\n", plc_tag_decode_error(tag));
+        return 0;
+    }
+
+    if((rc = plc_tag_status(tag)) != PLCTAG_STATUS_OK) {
+        // NOLINTNEXTLINE
+        fprintf(stderr, "Error setting up tag internal state. %s\n", plc_tag_decode_error(rc));
+        plc_tag_destroy(tag);
+        return 0;
+    }
+
+    /* create the read threads */
+    // NOLINTNEXTLINE
+    fprintf(stderr, "Creating %d threads.\n", num_threads);
+
+    for(thread_id = 0; thread_id < num_threads; thread_id++) {
+        compat_thread_create(&thread[thread_id], thread_func, (void *)(intptr_t)thread_id);
+    }
+
+    /* wait until ^C */
+    while(!done) { compat_sleep_ms(100, NULL); }
+
+    for(thread_id = 0; thread_id < num_threads; thread_id++) { compat_thread_join(thread[thread_id], NULL); }
+
+    plc_tag_destroy(tag);
+
+    return 0;
+}
