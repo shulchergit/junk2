@@ -1,1 +1,0 @@
-/usr/bin/c++ -O3 -DNDEBUG CMakeFiles/plctagt.dir/main.cpp.o CMakeFiles/plctagt.dir/plctags.cpp.o CMakeFiles/plctagt.dir/utility.cpp.o CMakeFiles/plctagt.dir/list_tags.cpp.o CMakeFiles/plctagt.dir/gui.cpp.o CMakeFiles/plctagt.dir/exercise.cpp.o -o plctagt  bin_dist/libplctag_static.a -lcurses /usr/lib/x86_64-linux-gnu/libform.so -lpthread 

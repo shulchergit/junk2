@@ -59,7 +59,6 @@ int32_t writeStringTag(string &error_string, int32_t tag, vector<string> &values
 inline array<int32_t, 3> tagGetSizes(string &error_string, int32_t tag) {
     int elem_size = 0;
     int elem_count = 0;
-    int32_t rc;
 
     /* get the tag size and element size. Do this _AFTER_ reading the tag otherwise we may not know how big the tag is! */
     elem_size = plc_tag_get_int_attribute(tag, "elem_size", 0);
@@ -75,7 +74,7 @@ inline array<int32_t, 3> tagGetSizes(string &error_string, int32_t tag) {
         return {-1002, 0, 0};
     }
 
-    return {rc, elem_size, elem_count};
+    return {0, elem_size, elem_count};
 }
 
 template <typename T>
@@ -114,6 +113,7 @@ int32_t readNumericTag(string &error_string, int32_t tag, vector<T> &values, int
 
     auto [rc, elem_size, elem_count] = tagGetSizes(error_string, tag);
     if(rc != PLCTAG_STATUS_OK) {
+        error_string = ssprintf("ERROR: Unable get tag information! Error code %d: %s\n", rc, plc_tag_decode_error(rc));
         return rc;
     }
 
@@ -168,6 +168,10 @@ template <typename T>
 int32_t writeNumericTag(string &error_string, int32_t tag, vector<T> &values, int time_out_ms = DATA_TIMEOUT) {
 
     auto [rc, elem_size, elem_count] = tagGetSizes(error_string, tag);
+    if(rc != PLCTAG_STATUS_OK) {
+        error_string = ssprintf("ERROR: Unable get tag information! Error code %d: %s\n", rc, plc_tag_decode_error(rc));
+        return rc;
+    }
 
     // /* nset the data to be written */
     // //int offset = 0;

@@ -20,7 +20,7 @@ add_executable(plctagt
     list_tags.h
     list_tags.cpp
     gui.cpp
-    exercise.cpp
+    examples.cpp
     # Add other source files here if needed
 )
 

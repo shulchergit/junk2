@@ -1,0 +1,41 @@
+
+# Qt build directories
+build-*/
+build*/
+*.pro.user
+*.moc
+*.obj
+*.o
+*.exe
+*.out
+*.a
+*.so
+
+# Temporary files
+*.swp
+*.log
+*.tmp
+# Qt build files
+*.o
+*.obj
+*.so
+*.a
+*.dll
+*.exe
+*.user
+*.pro.user
+*.pro.user.*
+*.qmake.stash
+*.moc
+*.qrc
+*.rcc
+*.ui
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+*.swp
+*.idea/
+*.vscode/
