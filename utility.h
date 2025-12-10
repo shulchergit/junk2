@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <iostream>
+#include <type_traits>
 #include <string>
 #include <unordered_set>
 #include <type_traits>
@@ -35,11 +36,28 @@ auto mapFindKey(const M& map, const V& value)
     return typename M::key_type{}; // default key (0 for uint16_t)
 }
 
+// template <typename T>
+// void printVector(const std::vector<T>& vec, const std::string& title = "Vector") {
+//     std::cout << title << " = [";
+//     for (size_t i = 0; i < vec.size(); ++i) {
+//         std::cout << vec[i];
+//         if (i != vec.size() - 1) std::cout << ", ";
+//     }
+//     std::cout << "]\n" << std::flush;
+// }
+
 template <typename T>
 void printVector(const std::vector<T>& vec, const std::string& title = "Vector") {
     std::cout << title << " = [";
     for (size_t i = 0; i < vec.size(); ++i) {
-        std::cout << vec[i];
+
+        if constexpr (std::is_same_v<T, int8_t> || std::is_same_v<T, uint8_t>) {
+            // Print as integer instead of char
+            std::cout << +vec[i];
+        } else {
+            std::cout << vec[i];
+        }
+
         if (i != vec.size() - 1) std::cout << ", ";
     }
     std::cout << "]\n" << std::flush;

@@ -221,7 +221,7 @@ int32_t writeNumericTag(string &error_string, int32_t tag, vector<T> &values, in
         // }
         //values.push_back(val);
         if(rc != PLCTAG_STATUS_OK) {
-            error_string = ssprintf("ERROR: Unable to set the data! GError code %d: %s\n", rc, plc_tag_decode_error(rc));
+            error_string = ssprintf("ERROR: Unable to set the data! Error code %d: %s\n", rc, plc_tag_decode_error(rc));
             return rc;
         }
     }
